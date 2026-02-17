@@ -1,8 +1,7 @@
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import axios from 'axios';
+import { Upload } from '@aws-sdk/lib-storage';
 import { google } from 'googleapis';
-import { PassThrough } from 'stream';
 import { s3 } from './s3.config';
+import axios from 'axios';
 
 export async function transferDriveFileToS3(
   driveAccessToken: string,
@@ -24,8 +23,6 @@ export async function transferDriveFileToS3(
 
   console.log('[TRANSFER] Drive stream received');
 
-  const stream = new PassThrough();
-
   const day = new Date().getDate();
   const month = new Date().getMonth() + 1;
   const year = new Date().getFullYear();
@@ -35,31 +32,31 @@ export async function transferDriveFileToS3(
 
   console.log(`[TRANSFER] S3 destination key: ${key}`);
 
-  const uploadPromise = s3.send(
-    new PutObjectCommand({
+  // Use multipart Upload for unknown-length streams
+  const upload = new Upload({
+    client: s3,
+    params: {
       Bucket: 'direct-gdrive-uploads',
       Key: key,
-      Body: stream,
-    }),
-  );
-
-  console.log('[TRANSFER] S3 upload initiated');
-
-  driveResponse.data.on('error', (err) => {
-    console.error('[TRANSFER] Drive stream error:', err);
+      Body: driveResponse.data, // stream directly
+    },
   });
 
-  stream.on('error', (err) => {
-    console.error('[TRANSFER] PassThrough stream error:', err);
+  upload.on('httpUploadProgress', (progress) => {
+    console.log(
+      `[TRANSFER] Upload progress: ${progress.loaded}/${progress.total || 'unknown'} bytes`,
+    );
   });
 
-  driveResponse.data.pipe(stream);
+  console.log('[TRANSFER] S3 multipart upload initiated');
 
-  console.log('[TRANSFER] Piping Drive → S3');
-
-  await uploadPromise;
-
-  console.log('[TRANSFER] Upload completed successfully');
+  try {
+    await upload.done();
+    console.log('[TRANSFER] Upload completed successfully');
+  } catch (err) {
+    console.error('[TRANSFER] Upload failed:', err);
+    throw err;
+  }
 }
 
 export async function pingSelf(url: string) {
