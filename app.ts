@@ -23,16 +23,13 @@ setupSwagger(app, BASE_URL);
 //#endregion App Setup
 
 //#region Code here
-// route to upload a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
-// driveAccessToken: string,
-// fileId: string,
 
 /**
  * @swagger
- * /upload:
+ * /transfer:
  *   post:
- *    summary: Upload a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
- *    description: Upload a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
+ *    summary: Transfer a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
+ *    description: Transfer a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
  *    tags: [Default]
  *    requestBody:
  *      required: true
@@ -58,7 +55,7 @@ setupSwagger(app, BASE_URL);
  *      '500':
  *        description: Failed to upload file.
  */
-app.post('/upload', async (req: Request, res: Response) => {
+app.post('/transfer', async (req: Request, res: Response) => {
   const { driveAccessToken, fileId } = req.body;
   if (!driveAccessToken || !fileId) {
     return res.status(400).send({
