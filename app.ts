@@ -50,6 +50,13 @@ setupSwagger(app, BASE_URL);
  *            required:
  *              - driveAccessToken
  *              - fileId
+ *    responses:
+ *      '200':
+ *        description: Successful.
+ *      '400':
+ *        description: Bad request.
+ *      '500':
+ *        description: Failed to upload file.
  */
 app.post('/upload', async (req: Request, res: Response) => {
   const { driveAccessToken, fileId } = req.body;
