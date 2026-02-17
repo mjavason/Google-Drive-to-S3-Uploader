@@ -3,8 +3,9 @@ import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
 import 'express-async-errors';
 import morgan from 'morgan';
-import { BASE_URL, PORT } from './temp hold/constants';
-import { setupSwagger } from './temp hold/swagger.config';
+import { BASE_URL, PORT } from './constants';
+import { transferDriveFileToS3 } from './functions';
+import { setupSwagger } from './swagger.config';
 
 //#region App Setup
 const app = express();
@@ -22,7 +23,58 @@ setupSwagger(app, BASE_URL);
 //#endregion App Setup
 
 //#region Code here
-console.log('Hello world');
+// route to upload a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
+// driveAccessToken: string,
+// fileId: string,
+
+/**
+ * @swagger
+ * /upload:
+ *   post:
+ *    summary: Upload a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
+ *    description: Upload a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
+ *    tags: [Default]
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            type: object
+ *            properties:
+ *              driveAccessToken:
+ *                type: string
+ *                description: The access token for Google Drive
+ *              fileId:
+ *                type: string
+ *                description: The ID of the file to upload
+ *            required:
+ *              - driveAccessToken
+ *              - fileId
+ */
+app.post('/upload', async (req: Request, res: Response) => {
+  const { driveAccessToken, fileId } = req.body;
+  if (!driveAccessToken || !fileId) {
+    return res.status(400).send({
+      success: false,
+      message: 'driveAccessToken and fileId are required',
+    });
+  }
+
+  try {
+    await transferDriveFileToS3(driveAccessToken, fileId);
+    return res.send({
+      success: true,
+      message: 'File uploaded successfully',
+    });
+  } catch (error: any) {
+    console.error('Error uploading file:', error.message);
+    return res.status(500).send({
+      success: false,
+      message: 'Failed to upload file',
+    });
+  }
+});
+
 //#endregion
 
 //#region Server Setup
