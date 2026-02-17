@@ -1,7 +1,7 @@
 import { Upload } from '@aws-sdk/lib-storage';
+import axios from 'axios';
 import { google } from 'googleapis';
 import { s3 } from './s3.config';
-import axios from 'axios';
 
 export async function transferDriveFileToS3(
   driveAccessToken: string,
@@ -17,6 +17,16 @@ export async function transferDriveFileToS3(
 
   const drive = google.drive({ version: 'v3', auth: oauth });
 
+  console.log('[TRANSFER] Fetching file metadata from Google Drive');
+
+  const fileMeta = await drive.files.get({
+    fileId,
+    fields: 'id,name,mimeType',
+  });
+
+  const fileName = fileMeta.data.name || fileId;
+  console.log(`[TRANSFER] Original file name: ${fileName}`);
+
   console.log('[TRANSFER] Requesting file stream from Google Drive');
 
   const driveResponse = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' });
@@ -28,17 +38,15 @@ export async function transferDriveFileToS3(
   const year = new Date().getFullYear();
   const datePath = `${year}/${month}/${day}`;
 
-  const key = `${datePath}/${fileId}`;
-
+  const key = `${datePath}/${fileName}`;
   console.log(`[TRANSFER] S3 destination key: ${key}`);
 
-  // Use multipart Upload for unknown-length streams
   const upload = new Upload({
     client: s3,
     params: {
       Bucket: 'direct-gdrive-uploads',
       Key: key,
-      Body: driveResponse.data, // stream directly
+      Body: driveResponse.data,
     },
   });
 
