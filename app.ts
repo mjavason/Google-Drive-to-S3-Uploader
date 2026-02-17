@@ -30,7 +30,7 @@ setupSwagger(app, BASE_URL);
  *   post:
  *    summary: Transfer a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
  *    description: Transfer a file from GDrive to S3 (for testing purposes - in production, this would likely be triggered by a pub/sub event or similar)
- *    tags: [Default]
+ *    tags: [Transfer]
  *    requestBody:
  *      required: true
  *      content:
@@ -65,10 +65,11 @@ app.post('/transfer', async (req: Request, res: Response) => {
   }
 
   try {
-    await transferDriveFileToS3(driveAccessToken, fileId);
+    const data = await transferDriveFileToS3(driveAccessToken, fileId);
     return res.send({
       success: true,
       message: 'File uploaded successfully',
+      fileUrl: data?.fileUrl,
     });
   } catch (error: any) {
     console.error('Error uploading file:', error.message);
