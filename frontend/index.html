@@ -1,65 +1,68 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Firebase Google Auth</title>
+  <title>Drive → S3 Multipart</title>
+
   <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-auth-compat.js"></script>
+
   <style>
     body {
       font-family: sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
+      gap: 10px;
+      margin-top: 40px;
     }
 
-    #tokenContainer {
-      display: none;
-      margin-top: 20px;
-      text-align: center;
+    input {
+      width: 420px;
+      padding: 8px;
     }
 
-    #tokenDisplay {
-      max-width: 80%;
-      border: 1px solid #ccc;
-      padding: 10px;
-      border-radius: 8px;
-      background: #f5f5f5;
-      font-size: 14px;
-      word-break: break-all;
-    }
-
-    #copyBtn {
+    #progressContainer {
+      width: 300px;
+      height: 20px;
+      border: 1px solid #000;
       margin-top: 10px;
-      padding: 6px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
     }
 
-    #copyMsg {
-      display: none;
-      margin-top: 8px;
-      color: green;
-      font-weight: bold;
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: green;
+      transition: width 0.2s ease;
+    }
+
+    pre {
+      width: 500px;
+      height: 200px;
+      overflow: auto;
+      background: #f5f5f5;
+      padding: 10px;
     }
   </style>
 </head>
 
 <body>
+
   <button id="googleSignInBtn">Sign In with Google</button>
-  <div id="tokenContainer">
-    <div id="tokenDisplay"></div>
-    <button id="copyBtn">Copy Full Token</button>
-    <div id="copyMsg">Copied to clipboard</div>
+
+  <input id="driveUrl" placeholder="Paste Google Drive file URL" />
+
+  <button id="uploadBtn">Upload to S3</button>
+
+  <div id="progressContainer">
+    <div id="progressBar"></div>
   </div>
 
-  <script>
-    // Dev
+  <pre id="log"></pre>
+
+  <script type="module">
+    const API_BASE = "http://localhost:5000";
+
     const firebaseConfig = {
       apiKey: 'AIzaSyAH0YegOcfvhGrSkcTmBiAB8wfW7oEuSco',
       authDomain: 'auth-demo-a4386.firebaseapp.com',
@@ -68,61 +71,164 @@
     };
 
     firebase.initializeApp(firebaseConfig);
+
     const auth = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope("https://www.googleapis.com/auth/drive.readonly");
 
-    function shortenToken(token) {
-      if (token.length <= 30) return token;
-      return token.slice(0, 15) + '...' + token.slice(-15);
+    let driveAccessToken = null;
+
+    const logEl = document.getElementById("log");
+    const progressBar = document.getElementById("progressBar");
+
+    const log = (msg) => {
+      logEl.textContent += msg + "\n";
+    };
+
+    const setProgress = (percent) => {
+      progressBar.style.width = percent + "%";
+    };
+
+    function extractFileId(url) {
+      const match = url.match(/(?:\/d\/|id=)([-\w]{25,})/);
+      if (!match) throw new Error("Invalid Drive URL");
+      return match[1];
     }
 
     async function signInWithGoogle() {
-      try {
-        const result = await auth.signInWithPopup(provider);
-        const credential = result.credential;
-        const driveAccessToken = credential?.accessToken;
-        if (!driveAccessToken) {
-          console.error('No access token found in credential:', credential);
-          return;
-        }
+      const result = await auth.signInWithPopup(provider);
+      const credential = result.credential;
 
-        const tokenDisplay = document.getElementById('tokenDisplay');
-        const tokenContainer = document.getElementById('tokenContainer');
-        tokenDisplay.textContent = shortenToken(driveAccessToken);
-        tokenContainer.style.display = 'block';
-        tokenDisplay.dataset.fullToken = driveAccessToken;
-      } catch (error) {
-        console.error('Sign-in error:', error);
+      if (!credential?.accessToken) {
+        throw new Error("No Google access token");
       }
+
+      driveAccessToken = credential.accessToken;
+      log("signed in");
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    async function downloadDriveFile(fileId) {
+      log("downloading from drive");
 
-      document
-        .getElementById('googleSignInBtn')
-        .addEventListener('click', signInWithGoogle);
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        {
+          headers: {
+            Authorization: `Bearer ${driveAccessToken}`,
+          },
+        }
+      );
 
-      const copyBtn = document.getElementById('copyBtn');
-      const copyMsg = document.getElementById('copyMsg');
+      if (!res.ok) {
+        throw new Error("Drive download failed");
+      }
 
-      copyBtn.addEventListener('click', async () => {
-        const fullToken =
-          document.getElementById('tokenDisplay').dataset.fullToken;
-        if (!fullToken) return;
-        await navigator.clipboard.writeText(fullToken);
-        copyMsg.style.display = 'block';
-        setTimeout(() => {
-          copyMsg.style.display = 'none';
-        }, 2000);
-      });
+      const blob = await res.blob();
 
+      log(`downloaded ${blob.size} bytes`);
 
-    });
+      return blob;
+    }
 
+    document.getElementById("uploadBtn").onclick = async () => {
+      try {
+        if (!driveAccessToken) throw new Error("not signed in");
 
-    
+        const url = document.getElementById("driveUrl").value;
+        const fileId = extractFileId(url);
+
+        const file = await downloadDriveFile(fileId);
+
+        log("init multipart");
+
+        const initRes = await fetch(API_BASE + "/multipart/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: fileId,
+            contentType: file.type || "application/octet-stream"
+          })
+        });
+
+        const { uploadId, key } = await initRes.json();
+
+        const PART_SIZE = 5 * 1024 * 1024;
+        const totalParts = Math.ceil(file.size / PART_SIZE);
+
+        log(`parts: ${totalParts}`);
+
+        const signRes = await fetch(API_BASE + "/multipart/sign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key,
+            uploadId,
+            parts: totalParts
+          })
+        });
+
+        const { urls } = await signRes.json();
+
+        const uploadedParts = [];
+        let completedParts = 0;
+
+        await Promise.all(
+          urls.map(async ({ partNumber, url }) => {
+            const start = (partNumber - 1) * PART_SIZE;
+            const end = Math.min(start + PART_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const res = await fetch(url, {
+              method: "PUT",
+              body: chunk
+            });
+
+            if (!res.ok) {
+              throw new Error(`Part ${partNumber} failed`);
+            }
+
+            const etag = res.headers.get("ETag");
+
+            uploadedParts.push({
+              ETag: etag,
+              PartNumber: partNumber
+            });
+
+            completedParts++;
+            const percent = Math.round((completedParts / totalParts) * 100);
+
+            setProgress(percent);
+            log(`uploaded part ${partNumber} (${percent}%)`);
+          })
+        );
+
+        log("completing upload");
+
+        const completeRes = await fetch(API_BASE + "/multipart/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key,
+            uploadId,
+            parts: uploadedParts
+          })
+        });
+
+        const result = await completeRes.json();
+
+        setProgress(100);
+
+        log("done:");
+        log(JSON.stringify(result, null, 2));
+
+      } catch (err) {
+        log("error: " + err.message);
+        console.error(err);
+      }
+    };
+
+    document.getElementById("googleSignInBtn").onclick = signInWithGoogle;
+
   </script>
 </body>
-
 </html>

@@ -13,8 +13,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.991.0",
     "@aws-sdk/lib-storage": "^3.991.0",
+    "@aws-sdk/client-s3": "^3.1036.0",
+    "@aws-sdk/s3-request-presigner": "^3.1036.0",
     "@types/cors": "^2.8.17",
     "@types/morgan": "^1.9.9",
     "@types/swagger-jsdoc": "^6.0.4",
@@ -27,7 +28,8 @@
     "googleapis": "^171.4.0",
     "morgan": "^1.10.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.13",

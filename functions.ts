@@ -3,6 +3,7 @@ import axios from 'axios';
 import { google } from 'googleapis';
 import { S3_BUCKET_NAME, S3_ENDPOINT, SampleGDriveFileId } from './constants';
 import { s3 } from './s3.config';
+import { CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 
 export async function transferDriveFileToS3(
   driveAccessToken: string,
@@ -78,6 +79,34 @@ export function extractDriveFileId(url: string): string {
 
   console.log(`[UTIL] Extracted file ID: ${match[1]} from URL: ${url}`);
   return match[1];
+}
+
+export async function getMimeType(ext: string): Promise<string> {
+  switch (ext.toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.pdf':
+      return 'application/pdf';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+export async function ensureBucketExists(bucket: string) {
+  try {
+    await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+  } catch (err: any) {
+    if (err.$metadata?.httpStatusCode === 404) {
+      await s3.send(new CreateBucketCommand({ Bucket: bucket }));
+    } else {
+      throw err;
+    }
+  }
 }
 
 export async function pingSelf(url: string) {

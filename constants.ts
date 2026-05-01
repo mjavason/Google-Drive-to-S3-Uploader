@@ -14,3 +14,5 @@ export const S3_ENDPOINT = process.env.S3_ENDPOINT || 'http://localhost:9000';
 export const S3_BUCKET = process.env.S3_BUCKET || 'startup';
 export const S3_REGION = process.env.S3_REGION || 'us-east-1';
 export const S3_BUCKET_NAME = 'direct-gdrive-uploads';
+
+// https://drive.google.com/file/d/1DGG6D0fvLgLfH7KcaW_IC66mxcZ7VzuG/view
