@@ -4,7 +4,7 @@ import express, { NextFunction, Request, Response } from 'express';
 import 'express-async-errors';
 import morgan from 'morgan';
 import { BASE_URL, PORT } from './constants';
-import { transferDriveFileToS3 } from './functions';
+import { extractDriveFileId, transferDriveFileToS3 } from './functions';
 import { setupSwagger } from './swagger.config';
 
 //#region App Setup
@@ -41,12 +41,11 @@ setupSwagger(app, BASE_URL);
  *              driveAccessToken:
  *                type: string
  *                description: The access token for Google Drive
- *              fileId:
+ *              fileUrl:
  *                type: string
- *                description: The ID of the file to upload
+ *                description: The URL of the file to upload. Retrieve it by sharing the file in Google Drive and copying the link. If not provided, a default sample file will be used.
  *            required:
  *              - driveAccessToken
- *              - fileId
  *    responses:
  *      '200':
  *        description: Successful.
@@ -56,7 +55,8 @@ setupSwagger(app, BASE_URL);
  *        description: Failed to upload file.
  */
 app.post('/transfer', async (req: Request, res: Response) => {
-  const { driveAccessToken, fileId } = req.body;
+  const { driveAccessToken, fileUrl } = req.body;
+
   if (!driveAccessToken) {
     return res.status(400).send({
       success: false,
@@ -65,6 +65,7 @@ app.post('/transfer', async (req: Request, res: Response) => {
   }
 
   try {
+    const fileId = fileUrl ? extractDriveFileId(fileUrl) : undefined;
     const data = await transferDriveFileToS3(driveAccessToken, fileId);
     return res.send({
       success: true,

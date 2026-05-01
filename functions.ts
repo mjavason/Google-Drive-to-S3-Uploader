@@ -68,6 +68,18 @@ export async function transferDriveFileToS3(
   }
 }
 
+export function extractDriveFileId(url: string): string {
+  // Matches common Google Drive URL formats
+  const match = url.match(/(?:\/d\/|id=)([-\w]{25,})/);
+
+  if (!match || !match[1]) {
+    throw new Error('Invalid Google Drive URL');
+  }
+
+  console.log(`[UTIL] Extracted file ID: ${match[1]} from URL: ${url}`);
+  return match[1];
+}
+
 export async function pingSelf(url: string) {
   try {
     const { data } = await axios.get(url);
