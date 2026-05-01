@@ -1,10 +1,13 @@
 import { Upload } from '@aws-sdk/lib-storage';
 import axios from 'axios';
 import { google } from 'googleapis';
-import { MINIO_BUCKET_NAME, MINIO_ENDPOINT } from './constants';
+import { S3_BUCKET_NAME, S3_ENDPOINT, SampleGDriveFileId } from './constants';
 import { s3 } from './s3.config';
 
-export async function transferDriveFileToS3(driveAccessToken: string, fileId: string) {
+export async function transferDriveFileToS3(
+  driveAccessToken: string,
+  fileId: string = SampleGDriveFileId,
+) {
   console.log('[TRANSFER] Starting Drive → S3 transfer');
   console.log(`[TRANSFER] FileId: ${fileId}`);
 
@@ -42,7 +45,7 @@ export async function transferDriveFileToS3(driveAccessToken: string, fileId: st
   const upload = new Upload({
     client: s3,
     params: {
-      Bucket: MINIO_BUCKET_NAME,
+      Bucket: S3_BUCKET_NAME,
       Key: key,
       Body: driveResponse.data,
     },
@@ -59,7 +62,7 @@ export async function transferDriveFileToS3(driveAccessToken: string, fileId: st
   try {
     await upload.done();
     console.log('[TRANSFER] Upload completed successfully');
-    return { fileUrl: `${MINIO_ENDPOINT}/${MINIO_BUCKET_NAME}/${key}` };
+    return { fileUrl: `${S3_ENDPOINT}/${S3_BUCKET_NAME}/${key}` };
   } catch (err) {
     console.error('[TRANSFER] Upload failed:', err);
   }

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Firebase Google Auth</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-auth-compat.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    #tokenContainer {
+      display: none;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    #tokenDisplay {
+      max-width: 80%;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 8px;
+      background: #f5f5f5;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    #copyBtn {
+      margin-top: 10px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #copyMsg {
+      display: none;
+      margin-top: 8px;
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <button id="googleSignInBtn">Sign In with Google</button>
+  <div id="tokenContainer">
+    <div id="tokenDisplay"></div>
+    <button id="copyBtn">Copy Full Token</button>
+    <div id="copyMsg">Copied to clipboard</div>
+  </div>
+
+  <script>
+    // Dev
+    const firebaseConfig = {
+      apiKey: 'AIzaSyAH0YegOcfvhGrSkcTmBiAB8wfW7oEuSco',
+      authDomain: 'auth-demo-a4386.firebaseapp.com',
+      projectId: 'auth-demo-a4386',
+      appId: '1:216685549681:web:4ba2c813f8c9439fc0a3d0',
+    };
+
+    // Prod
+    //   const firebaseConfig = {
+    //     apiKey: "AIzaSyD4D8o8_dVZFTl4IgWQr_eikwg98ywAdlY",
+    //     authDomain: "betguard-13dfd.firebaseapp.com",
+    //     projectId: "betguard-13dfd",
+    //     appId: "1:760349569924:web:0d7f2a8a9a7574731063d1",
+    // };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope("https://www.googleapis.com/auth/drive.readonly");
+
+    function shortenToken(token) {
+      if (token.length <= 30) return token;
+      return token.slice(0, 15) + '...' + token.slice(-15);
+    }
+
+    async function signInWithGoogle() {
+      try {
+        const result = await auth.signInWithPopup(provider);
+        const credential = result.credential;
+        const driveAccessToken = credential?.accessToken;
+        if (!driveAccessToken) {
+          console.error('No access token found in credential:', credential);
+          return;
+        }
+
+        const tokenDisplay = document.getElementById('tokenDisplay');
+        const tokenContainer = document.getElementById('tokenContainer');
+        tokenDisplay.textContent = shortenToken(driveAccessToken);
+        tokenContainer.style.display = 'block';
+        tokenDisplay.dataset.fullToken = driveAccessToken;
+      } catch (error) {
+        console.error('Sign-in error:', error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+      document
+        .getElementById('googleSignInBtn')
+        .addEventListener('click', signInWithGoogle);
+
+      const copyBtn = document.getElementById('copyBtn');
+      const copyMsg = document.getElementById('copyMsg');
+
+      copyBtn.addEventListener('click', async () => {
+        const fullToken =
+          document.getElementById('tokenDisplay').dataset.fullToken;
+        if (!fullToken) return;
+        await navigator.clipboard.writeText(fullToken);
+        copyMsg.style.display = 'block';
+        setTimeout(() => {
+          copyMsg.style.display = 'none';
+        }, 2000);
+      });
+
+
+    });
+
+
+    
+  </script>
+</body>
+
+</html>

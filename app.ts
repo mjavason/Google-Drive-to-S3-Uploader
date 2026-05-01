@@ -57,10 +57,10 @@ setupSwagger(app, BASE_URL);
  */
 app.post('/transfer', async (req: Request, res: Response) => {
   const { driveAccessToken, fileId } = req.body;
-  if (!driveAccessToken || !fileId) {
+  if (!driveAccessToken) {
     return res.status(400).send({
       success: false,
-      message: 'driveAccessToken and fileId are required',
+      message: 'driveAccessToken is required',
     });
   }
 
